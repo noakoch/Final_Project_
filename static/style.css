@@ -1,0 +1,65 @@
+/* styles.css */
+
+body {
+    background-color: #fcf3e2; /* צבע רקע שמנת */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh; /* גובה מלא של החלון הדפדפן */
+    font-family: 'Arial', sans-serif; /* פונט יפה עם סנסרית */
+    direction: rtl; /* כיון כתיבה מימין לשמאל (עברית) */
+    text-align: center; /* מרכז את הטקסט באמצע */
+    line-height: 1.5; /* מרווח בין השורות */
+    margin-bottom: 30px;
+}
+
+form {
+    margin-top: 10px; /* מרווח למעלה בין הטופס לכותרת */
+    padding: 40px; /* ריווח פנימי כללי לטופס */
+    border: 1px solid #060606; /* גבול סביב הטופס עם קווים עבים */
+    border-radius: 10px; /* פינות מעגלות לטופס */
+    background-color: #faba44; /* רקע לטופס לבן */
+    width: 600px; /* רוחב קבוע לטופס */
+    text-align: center; /* מרכז את הטקסט באמצע */
+    margin: 50px auto; /* מרווחים אוטומטיים לאמצע העמוד */
+}
+
+h1 {
+    display: none; /* מסתיר את הכותרת בדף עצמו */
+}
+
+img {
+    width: 900px; /* קבע את הגודל הרצוי */
+    height: auto;
+    display: inline-block;
+    margin: 20px;
+    position: relative; /* מיקום יחסי */
+    top: 20px;
+    z-index: 1000; /* ערך גבוה כדי שהתמונה תהיה מעל כל הפריטים האחרים */
+    margin-right: 80px;
+}
+
+label {
+    font-size: 1.2em; /* הגדלת גודל הכתב */
+    font-weight: bold; /* טקסט מודגש */
+}
+
+input[type="number"], input[type="text"] {
+    width: 250px; /* רוחב התיבה */
+    padding: 10px; /* ריווח פנימי */
+    font-size: 1.2em; /* גודל הגופן */
+    margin-bottom: 6px; /* מרווח למטה */
+    margin-top: 30px; /* מרווח למעלה */
+}
+
+button[type="submit"] {
+    font-size: 1.2em; /* גודל הגופן של הכפתור */
+    padding: 15px 30px; /* ריווח פנימי בכפתור */
+    margin-top: 30px; /* מרווח מעל לכפתור */
+}
+
+.container {
+    position: relative;
+    margin-top: 1000px; /* מרווח מעל לתוכן כדי שהתוכן יופיע מתחת לתמונה */
+}

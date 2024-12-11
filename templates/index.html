@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רשימת קניות</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        button[type="submit"] {
+            font-size: 1.2em;
+            padding: 15px 30px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <img src="pic/logo.png" alt="logo">
+    <h1>רשימת קניות</h1>
+    <form method="POST">
+        <label for="budget">מה התקציב שלך?</label>
+        <input type="number" id="budget" name="budget" required><br>
+
+        <label for="allergies"> מה להוציא מהתפריט שלך? (הפרד בפסיקים) </label>
+        <input type="text" id="allergies" name="allergies" required><br>
+
+        <label>בחר מאכלים מועדפים:</label><br>
+        {% for food, details in food_items.items() %}
+            <input type="checkbox" id="{{ food }}" name="food_items" value="{{ food }}">
+            <label for="{{ food }}">{{ food }}</label><br>
+        {% endfor %}
+
+        <button type="submit">צור רשימת קניות</button>
+    </form>
+
+    {% if shopping_list %}
+        <h2>רשימת הקניות שלך:</h2>
+        <ul>
+            {% for item in shopping_list %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>
