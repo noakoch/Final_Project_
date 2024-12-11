@@ -13,7 +13,7 @@ file_path = 'C:/Users/נעה/PycharmProjects/finish_project/data listi2.xlsx'
 ingredients_data = pd.read_excel(file_path, sheet_name='Ingredients')
 dishes_data = pd.read_excel(file_path, sheet_name='Dishs')
 
-# Convert dish and ingredient names to lowercase for comparison
+# Convert dish and ingredient names to lowercase for comparison.
 dishes_data['Dish'] = dishes_data['Dish'].str.lower()
 for i in range(1, 6):
     dishes_data[f'Ingredients {i}'] = dishes_data[f'Ingredients {i}'].str.lower()
