@@ -1,3 +1,5 @@
+current_user = None  # משתנה גלובלי לאחסון שם המשתמש המחובר
+
 import pandas as pd
 import webbrowser
 import os
@@ -5,21 +7,17 @@ import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import unquote
 
-
-
-
-# Read the Excel file with the updated path
+# נתיב לקובץ האקסל
 file_path = 'C:/Users/נעה/PycharmProjects/finish_project/data listi2.xlsx'
 ingredients_data = pd.read_excel(file_path, sheet_name='Ingredients')
 dishes_data = pd.read_excel(file_path, sheet_name='Dishs')
 
-# Convert dish and ingredient names to lowercase for comparison.
+# Convert dish and ingredient names to lowercase for comparison
 dishes_data['Dish'] = dishes_data['Dish'].str.lower()
 for i in range(1, 6):
     dishes_data[f'Ingredients {i}'] = dishes_data[f'Ingredients {i}'].str.lower()
 
 ingredients_data['Ingredient'] = ingredients_data['Ingredient'].str.lower()
-
 
 def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, dishes_data):
     def filter_dishes(dishes, allergies):
@@ -27,8 +25,7 @@ def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, d
             return dishes
         filtered_dishes = []
         for index, row in dishes.iterrows():
-            if not any(allergy in row[f'Ingredients {i}'] for allergy in allergies for i in range(1, 6) if
-                       pd.notna(row[f'Ingredients {i}'])):
+            if not any(allergy in row[f'Ingredients {i}'] for allergy in allergies for i in range(1, 6) if pd.notna(row[f'Ingredients {i}'])):
                 filtered_dishes.append(row)
         return pd.DataFrame(filtered_dishes)
 
@@ -41,75 +38,26 @@ def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, d
                 if not ingredient_price_row.empty:
                     ingredient_price = ingredient_price_row['price'].values[0]
                     total_cost += ingredient_price
-                else:
-                    print(f"Warning: Ingredient '{ingredient}' not found in ingredients data.")
         return total_cost
 
-    if required_dish: #todo: is it in dp?
-        required_dish_row = dishes_data[dishes_data['Dish'] == required_dish]
-        if required_dish_row.empty:
-            return f"The dish '{required_dish}' is not in the database.", None, None, None, None, None
-        for i in range(1, 6):
-            ingredient = required_dish_row.iloc[0][f'Ingredients {i}']
-            if pd.notna(ingredient) and any(allergy == ingredient for allergy in allergies):
-                return f"The requested dish '{required_dish}' contains your allergy '{ingredient}' and cannot be selected.", None, None, None, None, None
-        required_dish_cost = calculate_dish_cost(required_dish_row.iloc[0], ingredients_data)
-        if required_dish_cost > budget:
-            return f"The dish '{required_dish}' is over the budget of {budget}. Please select another dish or increase your budget.", None, None, None, None, None
+    filtered_dishes = filter_dishes(dishes_data, allergies)
+    selected_dishes = []
+    total_cost, total_value = 0, 0
+    ingredients_list = []
 
-    dishes_data = filter_dishes(dishes_data, allergies) # מסנן את האלרגיות
-    budget_int = int(budget)
-    n = len(dishes_data)
-    dp = [[0] * (budget_int + 1) for _ in range(n + 1)] # יצירת טבלה שכל שורה בה היא מנה וכל עמודה היא תקציב בטווח שבין 0 לתקציב שהמשתמש הכניס
+    for _, dish in filtered_dishes.iterrows():
+        cost = calculate_dish_cost(dish, ingredients_data)
+        if cost + total_cost <= budget:
+            selected_dishes.append(dish['Dish'])
+            total_cost += cost
+            total_value += dish['Nutritional Value']
+            for i in range(1, 6):
+                ingredient = dish[f'Ingredients {i}']
+                if pd.notna(ingredient):
+                    ingredients_list.append(ingredient)
 
-    for i in range(1, n + 1): # מילוי הטבלה בהתאם כך שמחיר המנה לא עובר את התקציב
-        dish = dishes_data.iloc[i - 1]
-        dish_cost = calculate_dish_cost(dish, ingredients_data) # האילוץ
-        dish_value = dish['Nutritional Value']
-        for b in range(budget_int + 1):
-            if dish_cost > b:#אם מנה לא בתקציב
-                dp[i][b] = dp[i - 1][b]#אם עלות המנה גבוהה מהתקציב אז אנחנו לא יכולים להוסיף אותה ומעתיקים את הערך מטבלת התכנון של המנה הקודמת באותו התקציב
-            else: #אם מנה כן בצקציב בודק אם כדי לקחת אותה
-                dp[i][b] = max(dp[i - 1][b], dp[i - 1][b - int(dish_cost)] + dish_value) #  בוחר אם כדי לקחת את המנה ביחס לעבר חייב להבין אתה השורה הזאת טוב
-
-    selected_dishes = []# במידה ויש מנה מבוקשת התקציב יורד לפי המנה המבוקשת
-    b = budget_int
-    if required_dish:
-        required_dish_row = dishes_data[dishes_data['Dish'] == required_dish].iloc[0]
-        selected_dishes.append(required_dish_row)
-        b -= int(calculate_dish_cost(required_dish_row, ingredients_data))
-
-    for i in range(n, 0, -1):#
-        if dp[i][b] != dp[i - 1][b]:
-            dish = dishes_data.iloc[i - 1]
-            if not required_dish or dish['Dish'] != required_dish:
-                selected_dishes.append(dish)
-                b -= int(calculate_dish_cost(dish, ingredients_data))
-
-    ingredients = {}
-    total_cost = 0
-    for dish in selected_dishes:
-        for i in range(1, 6):
-            ingredient = dish[f'Ingredients {i}']
-            if pd.notna(ingredient):
-                ingredient_price_row = ingredients_data[ingredients_data['Ingredient'] == ingredient]
-                if not ingredient_price_row.empty:
-                    ingredient_price = ingredient_price_row['price'].values[0]
-                    total_cost += ingredient_price
-                    if ingredient in ingredients:
-                        ingredients[ingredient] += 1
-                    else:
-                        ingredients[ingredient] = 1
-                else:
-                    print(f"Warning: Ingredient '{ingredient}' not found in ingredients data.")
-
-    ingredients_list = [f"{ingredient}*{count}" if count > 1 else ingredient for ingredient, count in ingredients.items()]
     remaining_budget = budget - total_cost
-    selected_dish_names = [dish['Dish'] for dish in selected_dishes]
-    total_nutritional_value = sum(dish['Nutritional Value'] for dish in selected_dishes)
-
-    return selected_dish_names, ingredients_list, total_cost, total_nutritional_value, remaining_budget
-
+    return selected_dishes, ingredients_list, total_cost, total_value, remaining_budget
 
 class RequestHandler(BaseHTTPRequestHandler):
     def _set_headers(self):
@@ -121,194 +69,257 @@ class RequestHandler(BaseHTTPRequestHandler):
         return message.encode('utf8')
 
     def do_POST(self):
+        global current_user
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length).decode('utf-8')
 
-        # -------------------------
-        # טיפול ב-Sign Up
-        # -------------------------
-        if self.path == '/signup':
-            print("Sign Up POST request received")
-            print("Raw POST data:", post_data)
-
+        # התחברות משתמש
+        if self.path == '/login':
             try:
                 data = {key: unquote(value) for key, value in (x.split('=') for x in post_data.split('&'))}
-                print("Parsed POST data:", data)
-            except Exception as e:
-                print("Error parsing POST data:", e)
-                self.send_error(400, "Bad Request: Unable to parse POST data")
-                return
+                username = data['username']
+                password = data['password']
 
-            try:
-                user_data = {
-                    "First Name": data['first_name'],
-                    "Last Name": data['last_name'],
-                    "Email": data['email'],
-                    "Phone": data['phone'],
-                    "Address": data['address'],
-                    "Username": data['username'],
-                    "Password": data['password']
-                }
-                file_path = 'users.xlsx'
-                if not os.path.exists(file_path):
-                    df = pd.DataFrame(columns=user_data.keys())
-                    df.to_excel(file_path, index=False)
-
-                df = pd.read_excel(file_path)
-                if user_data['Username'] in df['Username'].values:
-                    print("Username already exists")
-                    self._set_headers()
-                    self.wfile.write(b"<h1>Username already exists. Please choose another one.</h1>")
+                users_file = 'users.xlsx'
+                if not os.path.exists(users_file):
+                    self.send_error(500, "Users file not found")
                     return
 
-                new_row = pd.DataFrame([user_data])
-                df = pd.concat([df, new_row], ignore_index=True)
-                df.to_excel(file_path, index=False)
-                print("User data saved to Excel successfully")
-
+                df = pd.read_excel(users_file)
+                if username in df['Username'].values and df[df['Username'] == username]['Password'].values[
+                    0] == password:
+                    current_user = username
+                    self.send_response(302)
+                    self.send_header('Location', '/dashboard')
+                    self.end_headers()
+                else:
+                    self._set_headers()
+                    self.wfile.write(b"Incorrect username or password.")
             except Exception as e:
-                print("Error saving user data:", e)
-                self.send_error(500, "Internal Server Error: Unable to save user data")
-                return
+                self.send_error(500, f"Login error: {e}")
 
-            self.send_response(302)
-            self.send_header('Location', '/')
-            self.end_headers()
-
-        # -------------------------
-        # טיפול ב-Log In
-        # -------------------------
-        elif self.path == '/login':
-            print("Log In POST request received")
-            print("Raw POST data:", post_data)
-
+        # הרשמה משתמש חדש
+        elif self.path == '/signup':
             try:
                 data = {key: unquote(value) for key, value in (x.split('=') for x in post_data.split('&'))}
-                print("Parsed POST data:", data)
+
+                # פרטי המשתמש
+                user_data = {
+                    "First Name": data.get('first_name', '').strip(),
+                    "Last Name": data.get('last_name', '').strip(),
+                    "Email": data.get('email', '').strip(),
+                    "Phone": data.get('phone', '').strip(),
+                    "Address": data.get('address', '').strip(),
+                    "Username": data.get('username', '').strip(),
+                    "Password": data.get('password', '').strip()
+                }
+
+                # בדיקה אם קובץ המשתמשים קיים
+                users_file = 'users.xlsx'
+                if not os.path.exists(users_file):
+                    df = pd.DataFrame(columns=user_data.keys())
+                    df.to_excel(users_file, index=False)
+
+                # קריאת קובץ המשתמשים
+                df = pd.read_excel(users_file)
+
+                # בדיקה אם שם המשתמש כבר קיים
+                if user_data["Username"] in df["Username"].values:
+                    self._set_headers()
+                    self.wfile.write(b"Username already exists. Please choose a different username.")
+                    return
+
+                # הוספת המשתמש החדש
+                new_row = pd.DataFrame([user_data])
+                df = pd.concat([df, new_row], ignore_index=True)
+                df.to_excel(users_file, index=False)
+
+                # חזרה לדף הבית
+                self.send_response(302)
+                self.send_header('Location', '/login')
+                self.end_headers()
             except Exception as e:
-                print("Error parsing POST data:", e)
-                self.send_error(400, "Bad Request: Unable to parse POST data")
-                return
+                self.send_error(500, f"Error during signup: {e}")
 
-            username = data['username']
-            password = data['password']
-
-            file_path = 'users.xlsx'
-            if not os.path.exists(file_path):
-                print("Users file not found")
-                self.send_error(500, "Internal Server Error: Users file not found")
-                return
-
+        # יצירת רשימה חדשה
+        elif self.path == '/process':
             try:
-                df = pd.read_excel(file_path)
-            except Exception as e:
-                print("Error reading Excel file:", e)
-                self.send_error(500, "Internal Server Error: Unable to read Excel file")
-                return
-
-            if username not in df['Username'].values:
-                print("Username not found")
-                self._set_headers()
-                self.wfile.write(b"<h1>Username not found. Please sign up first.</h1>")
-                return
-
-            user_row = df[df['Username'] == username]
-            if user_row['Password'].values[0] != password:
-                print("Incorrect password")
-                self._set_headers()
-                self.wfile.write(b"<h1>Incorrect password. Please try again.</h1>")
-                return
-
-            print("Log in successful")
-            self.send_response(302)
-            self.send_header('Location', '/dashboard')
-            self.end_headers()
-
-        # -------------------------
-        # טיפול ב-Process (טופס יצירת רשימה חדשה)
-        # -------------------------
-        elif self.path == '/process':  # עיבוד נתוני הטופס
-            print("Processing new list request")
-            try:
-                # ניתוח הנתונים שהגיעו כ-JSON
                 data = json.loads(post_data)
-                print("Parsed form data:", data)
-
                 budget = float(data['budget'])
-                required_dish = data['requiredDish'].strip().lower() if data['requiredDish'] else None
-                allergies = [allergy.strip().lower() for allergy in data['allergies'].split(',')] if data[
-                    'allergies'] else []
+                required_dish = data.get('requiredDish', '').strip().lower()
+                allergies = [allergy.strip().lower() for allergy in data.get('allergies', '').split(',') if allergy]
 
-                print(f"Budget: {budget}, Required Dish: {required_dish}, Allergies: {allergies}")
-
-                # הפעלת האלגוריתם
                 result = optimized_selection_dp(budget, required_dish, allergies, ingredients_data, dishes_data)
-                if result[1] is None:
-                    output = f"<div class='results'><p>{result[0]}</p></div>"
-                else:
-                    selected_dish_names, ingredients_list, total_cost, total_nutritional_value, remaining_budget = result
-                    output = f"""
-                    <div class='results'>
-                        <p><span>The following dishes were selected:</span> {', '.join(selected_dish_names)}</p>
-                        <p><span>Ingredient list:</span> {', '.join(ingredients_list)}</p>
-                        <p><span>Total cost:</span> {total_cost:.3f}</p>
-                        <p><span>Nutritional value of the basket:</span> {total_nutritional_value:.3f}</p>
-                        <p><span>Remaining budget:</span> {remaining_budget:.3f}</p>
-                    </div>
-                    """
+                selected_dishes, ingredients_list, total_cost, total_value, remaining_budget = result
 
-                # החזרת תוצאות למשתמש
+                # שמירת ההיסטוריה
+                history_file = "list_history.xlsx"
+                new_entry = {
+                    "username": current_user,
+                    "date of list": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_cost": total_cost,
+                }
+                for i, ingredient in enumerate(ingredients_list, start=1):
+                    new_entry[f"Ingredient {i}"] = ingredient
+
+                if not os.path.exists(history_file):
+                    history_df = pd.DataFrame(columns=new_entry.keys())
+                else:
+                    history_df = pd.read_excel(history_file)
+
+                history_df = pd.concat([history_df, pd.DataFrame([new_entry])], ignore_index=True)
+                history_df.to_excel(history_file, index=False)
+
+                # החזרת תוצאה למשתמש
+                output = f"""
+                <div>
+                    <p>Dishes: {', '.join(selected_dishes)}</p>
+                    <p>Ingredients: {', '.join(ingredients_list)}</p>
+                    <p>Total cost: {total_cost}</p>
+                    <p>Total value: {total_value}</p>
+                    <p>Remaining budget: {remaining_budget}</p>
+                </div>
+                """
                 self._set_headers()
                 self.wfile.write(self._html(output))
-
             except Exception as e:
-                print("Error processing form data:", e)
-                self.send_error(500, "Internal Server Error: Unable to process form data")
+                self.send_error(500, f"Error processing list: {e}")
 
     def do_GET(self):
-        # מסדר את הנתיב כך שיתעלם מסימן שאלה ופרמטרים
+        # חלוקת הנתיב
         path = self.path.split('?')[0]
 
-        if path == '/create_new_list':  # עמוד יצירת רשימה חדשה
-            self._set_headers()
-            with open('input_form.html', 'r') as file:
-                html_content = file.read()
-            self.wfile.write(self._html(html_content))
+        try:
+            # עמוד הבית
+            if path == '/':
+                self._set_headers()
+                with open('index.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
-        elif path == '/':  # עמוד הבית
-            self._set_headers()
-            with open('index.html', 'r') as file:
-                html_content = file.read()
-            self.wfile.write(self._html(html_content))
+            # עמוד ההרשמה
+            elif path == '/signup':
+                self._set_headers()
+                with open('signup.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
-        elif path == '/signup':  # עמוד ההרשמה
-            self._set_headers()
-            with open('signup.html', 'r') as file:
-                html_content = file.read()
-            self.wfile.write(self._html(html_content))
+            # עמוד ההתחברות
+            elif path == '/login':
+                self._set_headers()
+                with open('login.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
-        elif path == '/login':  # עמוד הכניסה
-            self._set_headers()
-            with open('login.html', 'r') as file:
-                html_content = file.read()
-            self.wfile.write(self._html(html_content))
+            # עמוד לוח הבקרה
+            elif path == '/dashboard':
+                self._set_headers()
+                with open('dashboard.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
-        elif path == '/dashboard':  # עמוד הבחירה לאחר Log In
-            self._set_headers()
-            with open('dashboard.html', 'r') as file:
-                html_content = file.read()
-            self.wfile.write(self._html(html_content))
+            # עמוד יצירת רשימה חדשה
+            elif path == '/create_new_list':
+                self._set_headers()
+                with open('input_form.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
-        else:  # נתיב לא נמצא
-            self.send_error(404, f"The path '{self.path}' does not exist")
+            # עמוד היסטוריית רשימות
+            elif path == '/view_history':
+                self._set_headers()
+                history_file = "list_history.xlsx"
+                if os.path.exists(history_file):
+                    df = pd.read_excel(history_file)
+
+                    # סינון לפי משתמש מחובר
+                    if current_user:
+                        user_history = df[df['username'] == current_user]
+
+                        if not user_history.empty:
+                            # טיפול במצרכים - חיבור מצרכים כפולים
+                            def format_ingredients(row):
+                                ingredients = []
+                                for col in row.index:
+                                    if col.startswith("Ingredient") and pd.notna(row[col]):
+                                        ingredients.append(row[col])
+                                formatted_ingredients = {}
+                                for ingredient in ingredients:
+                                    if ingredient in formatted_ingredients:
+                                        formatted_ingredients[ingredient] += 1
+                                    else:
+                                        formatted_ingredients[ingredient] = 1
+                                return ', '.join(f"{ing}*{count}" if count > 1 else ing for ing, count in
+                                                 formatted_ingredients.items())
+
+                            # יצירת עמודה מעוצבת למצרכים
+                            user_history['Formatted Ingredients'] = user_history.apply(format_ingredients, axis=1)
+
+                            # מחיקת עמודות Ingredients המקוריות
+                            ingredient_columns = [col for col in user_history.columns if col.startswith("Ingredient")]
+                            user_history = user_history.drop(columns=ingredient_columns)
+
+                            # הסתרת NaN והצגת טבלה HTML
+                            html_content = user_history.fillna('').to_html(index=False, classes="table")
+                        else:
+                            html_content = "<h1>No list history found for your account.</h1>"
+                    else:
+                        html_content = "<h1>No user is currently logged in. Please log in first.</h1>"
+                else:
+                    html_content = "<h1>No list history found.</h1>"
+
+                self.wfile.write(self._html(f"""
+                <html>
+                <head>
+                    <title>List History</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .table {{ width: 100%; border-collapse: collapse; }}
+                        .table th, .table td {{ border: 1px solid #ddd; padding: 8px; }}
+                        .table th {{ background-color: #f2f2f2; text-align: left; }}
+                    </style>
+                </head>
+                <body>
+                    <h1>List History</h1>
+                    {html_content}
+                </body>
+                </html>
+                """))
+
+            # תמיכה בתמונות
+            elif path.endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                try:
+                    file_path = path.lstrip('/')  # הסרת "/" מהנתיב
+                    if os.path.exists(file_path):
+                        self.send_response(200)
+                        if file_path.endswith('.jpg') or file_path.endswith('.jpeg'):
+                            self.send_header('Content-type', 'image/jpeg')
+                        elif file_path.endswith('.png'):
+                            self.send_header('Content-type', 'image/png')
+                        elif file_path.endswith('.gif'):
+                            self.send_header('Content-type', 'image/gif')
+                        self.end_headers()
+                        with open(file_path, 'rb') as file:
+                            self.wfile.write(file.read())
+                    else:
+                        self.send_error(404, f"File Not Found: {path}")
+                except Exception as e:
+                    self.send_error(500, f"Internal Server Error: {e}")
+
+            # נתיב לא נמצא
+            else:
+                self.send_error(404, f"The path '{self.path}' does not exist")
+
+        except Exception as e:
+            print(f"Error in GET handler: {e}")
+            self.send_error(500, "Internal Server Error")
 
 
 def run(server_class=HTTPServer, handler_class=RequestHandler, port=8000):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
-    print(f'Starting httpd server on port {port}...')
+    print(f"Starting server on port {port}...")
     httpd.serve_forever()
-
 
 if __name__ == "__main__":
     webbrowser.open('http://localhost:8000')
