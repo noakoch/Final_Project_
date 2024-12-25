@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import unquote
 
 # נתיב לקובץ האקסל
-file_path = 'C:/Users/נעה/PycharmProjects/finish_project/data listi2.xlsx'
+file_path = 'C:/Users/נעה/PycharmProjects/new_finish/data listi2.xlsx'
 ingredients_data = pd.read_excel(file_path, sheet_name='Ingredients')
 dishes_data = pd.read_excel(file_path, sheet_name='Dishs')
 
@@ -98,48 +98,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, f"Login error: {e}")
 
-        # הרשמה משתמש חדש
-        elif self.path == '/signup':
-            try:
-                data = {key: unquote(value) for key, value in (x.split('=') for x in post_data.split('&'))}
-
-                # פרטי המשתמש
-                user_data = {
-                    "First Name": data.get('first_name', '').strip(),
-                    "Last Name": data.get('last_name', '').strip(),
-                    "Email": data.get('email', '').strip(),
-                    "Phone": data.get('phone', '').strip(),
-                    "Address": data.get('address', '').strip(),
-                    "Username": data.get('username', '').strip(),
-                    "Password": data.get('password', '').strip()
-                }
-
-                # בדיקה אם קובץ המשתמשים קיים
-                users_file = 'users.xlsx'
-                if not os.path.exists(users_file):
-                    df = pd.DataFrame(columns=user_data.keys())
-                    df.to_excel(users_file, index=False)
-
-                # קריאת קובץ המשתמשים
-                df = pd.read_excel(users_file)
-
-                # בדיקה אם שם המשתמש כבר קיים
-                if user_data["Username"] in df["Username"].values:
-                    self._set_headers()
-                    self.wfile.write(b"Username already exists. Please choose a different username.")
-                    return
-
-                # הוספת המשתמש החדש
-                new_row = pd.DataFrame([user_data])
-                df = pd.concat([df, new_row], ignore_index=True)
-                df.to_excel(users_file, index=False)
-
-                # חזרה לדף הבית
-                self.send_response(302)
-                self.send_header('Location', '/login')
-                self.end_headers()
-            except Exception as e:
-                self.send_error(500, f"Error during signup: {e}")
 
         # יצירת רשימה חדשה
         elif self.path == '/process':
@@ -150,9 +108,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                 allergies = [allergy.strip().lower() for allergy in data.get('allergies', '').split(',') if allergy]
 
                 result = optimized_selection_dp(budget, required_dish, allergies, ingredients_data, dishes_data)
-                selected_dishes, ingredients_list, total_cost, total_value, remaining_budget = result
+                selected_dishes, ingredients_list, total_cost, _, remaining_budget = result
 
-                # שמירת ההיסטוריה
+                # וידוא שמות המנות מותאמים לקובץ
+                normalized_dishes = [dish.strip().lower() for dish in selected_dishes]
+
+
+                # חישוב הערך התזונתי
+                total_nutritional_value = dishes_data.loc[
+                    dishes_data['Dish'].isin(normalized_dishes), 'Nutritional Value'
+                ].dropna().astype(float).sum()
+
+                # שמירת נתונים בקובץ היסטוריה
                 history_file = "list_history.xlsx"
                 new_entry = {
                     "username": current_user,
@@ -170,14 +137,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 history_df = pd.concat([history_df, pd.DataFrame([new_entry])], ignore_index=True)
                 history_df.to_excel(history_file, index=False)
 
-                # החזרת תוצאה למשתמש
+                # יצירת הפלט למשתמש
                 output = f"""
-                <div>
-                    <p>Dishes: {', '.join(selected_dishes)}</p>
-                    <p>Ingredients: {', '.join(ingredients_list)}</p>
-                    <p>Total cost: {total_cost}</p>
-                    <p>Total value: {total_value}</p>
-                    <p>Remaining budget: {remaining_budget}</p>
+                <div style="background-color: #f3e5f5; padding: 20px; border-radius: 10px;">
+                    <p><b>Dishes:</b> {', '.join(selected_dishes)}</p>
+                    <p><b>Ingredients:</b> {', '.join(ingredients_list)}</p>
+                    <p><b>Total cost:</b> {total_cost}</p>
+                    <p><b>Total nutritional value:</b> {total_nutritional_value}</p>
+                    <p><b>Remaining budget:</b> {remaining_budget}</p>
                 </div>
                 """
                 self._set_headers()
