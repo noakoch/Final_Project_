@@ -70,7 +70,12 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global current_user
-        content_length = int(self.headers['Content-Length'])
+        content_length = self.headers.get('Content-Length')
+        if content_length is None or int(content_length) == 0:
+            self.send_error(500, "Content-Length is missing or invalid.")
+            return
+
+        content_length = int(content_length)
         post_data = self.rfile.read(content_length).decode('utf-8')
 
         # התחברות משתמש
@@ -98,6 +103,38 @@ class RequestHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, f"Login error: {e}")
 
+        # יצירת משתמש חדש (Sign Up)
+        elif self.path == '/signup':
+            try:
+                # ניתוח הנתונים שהתקבלו
+                data = {key: unquote(value) for key, value in (x.split('=') for x in post_data.split('&'))}
+                username = data['username']
+                password = data['password']
+
+                users_file = 'users.xlsx'
+
+                # יצירת קובץ משתמשים אם לא קיים
+                if not os.path.exists(users_file):
+                    df = pd.DataFrame(columns=['Username', 'Password'])
+                else:
+                    df = pd.read_excel(users_file)
+
+                # בדיקה אם המשתמש כבר קיים
+                if username in df['Username'].values:
+                    self._set_headers()
+                    self.wfile.write(b"Username already exists. Please choose another username.")
+                else:
+                    # הוספת המשתמש החדש
+                    new_user = {'Username': username, 'Password': password}
+                    df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
+                    df.to_excel(users_file, index=False)
+
+                    # הפנייה לעמוד ההתחברות
+                    self.send_response(302)
+                    self.send_header('Location', '/login')
+                    self.end_headers()
+            except Exception as e:
+                self.send_error(500, f"Signup error: {e}")
 
         # יצירת רשימה חדשה
         elif self.path == '/process':
@@ -110,14 +147,25 @@ class RequestHandler(BaseHTTPRequestHandler):
                 result = optimized_selection_dp(budget, required_dish, allergies, ingredients_data, dishes_data)
                 selected_dishes, ingredients_list, total_cost, _, remaining_budget = result
 
-                # וידוא שמות המנות מותאמים לקובץ
+                # התאמת שמות המנות לפורמט הקובץ
                 normalized_dishes = [dish.strip().lower() for dish in selected_dishes]
-
 
                 # חישוב הערך התזונתי
                 total_nutritional_value = dishes_data.loc[
-                    dishes_data['Dish'].isin(normalized_dishes), 'Nutritional Value'
+                    dishes_data['Dish'].str.lower().isin(normalized_dishes), 'Nutritional Value'
                 ].dropna().astype(float).sum()
+
+                # עיבוד רשימת מצרכים עם כפילויות
+                ingredient_counts = {}
+                for ingredient in ingredients_list:
+                    if ingredient in ingredient_counts:
+                        ingredient_counts[ingredient] += 1
+                    else:
+                        ingredient_counts[ingredient] = 1
+                formatted_ingredients = [
+                    f"{ingredient}*{count}" if count > 1 else ingredient
+                    for ingredient, count in ingredient_counts.items()
+                ]
 
                 # שמירת נתונים בקובץ היסטוריה
                 history_file = "list_history.xlsx"
@@ -125,8 +173,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "username": current_user,
                     "date of list": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "total_cost": total_cost,
+                    "total_nutritional_value": total_nutritional_value
                 }
-                for i, ingredient in enumerate(ingredients_list, start=1):
+                for i, ingredient in enumerate(formatted_ingredients, start=1):
                     new_entry[f"Ingredient {i}"] = ingredient
 
                 if not os.path.exists(history_file):
@@ -141,7 +190,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 output = f"""
                 <div style="background-color: #f3e5f5; padding: 20px; border-radius: 10px;">
                     <p><b>Dishes:</b> {', '.join(selected_dishes)}</p>
-                    <p><b>Ingredients:</b> {', '.join(ingredients_list)}</p>
+                    <p><b>Ingredients:</b> {', '.join(formatted_ingredients)}</p>
                     <p><b>Total cost:</b> {total_cost}</p>
                     <p><b>Total nutritional value:</b> {total_nutritional_value}</p>
                     <p><b>Remaining budget:</b> {remaining_budget}</p>
@@ -166,10 +215,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             # עמוד ההרשמה
             elif path == '/signup':
-                self._set_headers()
-                with open('signup.html', 'r', encoding='utf-8') as file:
-                    html_content = file.read()
-                self.wfile.write(self._html(html_content))
+                try:
+                    self._set_headers()
+                    with open('signup.html', 'r', encoding='utf-8') as file:
+                        html_content = file.read()
+                    self.wfile.write(self._html(html_content))
+                except Exception as e:
+                    self.send_error(500, f"Error loading Sign Up page: {e}")
+
 
             # עמוד ההתחברות
             elif path == '/login':
