@@ -40,6 +40,15 @@ def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, d
                     total_cost += ingredient_price
         return total_cost
 
+    # בדיקה אם המנה המועדפת מתנגשת עם אלרגיות
+    if required_dish:
+        dish_row = dishes_data[dishes_data['Dish'] == required_dish]
+        if not dish_row.empty:
+            for i in range(1, 6):
+                ingredient = dish_row.iloc[0][f'Ingredients {i}']
+                if pd.notna(ingredient) and ingredient in allergies:
+                    return f"The dish '{required_dish}' contains '{ingredient}'. Please change your selection accordingly."
+
     filtered_dishes = filter_dishes(dishes_data, allergies)
     selected_dishes = []
     total_cost, total_value = 0, 0
@@ -58,6 +67,9 @@ def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, d
 
     remaining_budget = budget - total_cost
     return selected_dishes, ingredients_list, total_cost, total_value, remaining_budget
+
+
+
 
 class RequestHandler(BaseHTTPRequestHandler):
     def _set_headers(self):
@@ -144,6 +156,45 @@ class RequestHandler(BaseHTTPRequestHandler):
                 required_dish = data.get('requiredDish', '').strip().lower()
                 allergies = [allergy.strip().lower() for allergy in data.get('allergies', '').split(',') if allergy]
 
+                # בדיקת התנגשות בין המנה המועדפת לאלרגיות
+                if required_dish:
+                    required_dish_row = dishes_data[dishes_data['Dish'] == required_dish]
+                    if not required_dish_row.empty:
+                        for i in range(1, 6):
+                            ingredient = required_dish_row[f'Ingredients {i}'].values[0]
+                            if pd.notna(ingredient) and ingredient in allergies:
+                                error_message = f"The dish '{required_dish}' contains '{ingredient}', which is in your allergies list. Please change your selection."
+                                output = f"""
+                                <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 10px;">
+                                    <h3>Error:</h3>
+                                    <p>{error_message}</p>
+                                </div>
+                                """
+                                self._set_headers()
+                                self.wfile.write(self._html(output))
+                                return
+
+                        # בדיקת האם המנה המועדפת אינה בתקציב
+                        required_dish_cost = sum(
+                            ingredients_data[
+                                ingredients_data['Ingredient'] == required_dish_row[f'Ingredients {i}'].values[0]][
+                                'price'].values[0]
+                            for i in range(1, 6)
+                            if pd.notna(required_dish_row[f'Ingredients {i}'].values[0])
+                        )
+                        if required_dish_cost > budget:
+                            error_message = f"The required dish '{required_dish}' exceeds your budget of {budget}. Please adjust your selection or increase your budget."
+                            output = f"""
+                            <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 10px;">
+                                <h3>Error:</h3>
+                                <p>{error_message}</p>
+                            </div>
+                            """
+                            self._set_headers()
+                            self.wfile.write(self._html(output))
+                            return
+
+                # קריאה לפונקציה לחישוב הרשימה
                 result = optimized_selection_dp(budget, required_dish, allergies, ingredients_data, dishes_data)
                 selected_dishes, ingredients_list, total_cost, _, remaining_budget = result
 
@@ -154,6 +205,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 total_nutritional_value = dishes_data.loc[
                     dishes_data['Dish'].str.lower().isin(normalized_dishes), 'Nutritional Value'
                 ].dropna().astype(float).sum()
+
+                # חישוב ערך תזונתי ממוצע
+                average_nutritional_value = total_nutritional_value / len(selected_dishes) if selected_dishes else 0
 
                 # עיבוד רשימת מצרכים עם כפילויות
                 ingredient_counts = {}
@@ -193,6 +247,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <p><b>Ingredients:</b> {', '.join(formatted_ingredients)}</p>
                     <p><b>Total cost:</b> {total_cost}</p>
                     <p><b>Total nutritional value:</b> {total_nutritional_value}</p>
+                    <p><b>Average nutritional value per dish:</b> {average_nutritional_value:.2f}</p>
                     <p><b>Remaining budget:</b> {remaining_budget}</p>
                 </div>
                 """
