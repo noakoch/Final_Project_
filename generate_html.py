@@ -118,35 +118,50 @@ class RequestHandler(BaseHTTPRequestHandler):
         # יצירת משתמש חדש (Sign Up)
         elif self.path == '/signup':
             try:
-                # ניתוח הנתונים שהתקבלו
+                # Parse received data
                 data = {key: unquote(value) for key, value in (x.split('=') for x in post_data.split('&'))}
+                first_name = data['first_name']
+                last_name = data['last_name']
+                email = data['email']
+                phone = data['phone']
+                address = data['address']
                 username = data['username']
                 password = data['password']
 
                 users_file = 'users.xlsx'
 
-                # יצירת קובץ משתמשים אם לא קיים
+                # Create the users file if it doesn't exist
                 if not os.path.exists(users_file):
-                    df = pd.DataFrame(columns=['Username', 'Password'])
+                    df = pd.DataFrame(
+                        columns=['First Name', 'Last Name', 'Email', 'Phone', 'Address', 'Username', 'Password'])
                 else:
                     df = pd.read_excel(users_file)
 
-                # בדיקה אם המשתמש כבר קיים
+                # Check if the username already exists
                 if username in df['Username'].values:
                     self._set_headers()
                     self.wfile.write(b"Username already exists. Please choose another username.")
                 else:
-                    # הוספת המשתמש החדש
-                    new_user = {'Username': username, 'Password': password}
+                    # Add the new user
+                    new_user = {
+                        'First Name': first_name,
+                        'Last Name': last_name,
+                        'Email': email,
+                        'Phone': phone,
+                        'Address': address,
+                        'Username': username,
+                        'Password': password
+                    }
                     df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
                     df.to_excel(users_file, index=False)
 
-                    # הפנייה לעמוד ההתחברות
+                    # Redirect to the login page
                     self.send_response(302)
                     self.send_header('Location', '/login')
                     self.end_headers()
             except Exception as e:
                 self.send_error(500, f"Signup error: {e}")
+
 
         # יצירת רשימה חדשה
         elif self.path == '/process':
@@ -261,6 +276,19 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
 
         try:
+            # טיפול בקבצי CSS
+            if path.endswith('.css'):
+                file_path = path.lstrip('/')  # הסרת "/" מהנתיב
+                if os.path.exists(file_path):
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/css')  # סוג MIME של CSS
+                    self.end_headers()
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        self.wfile.write(file.read().encode('utf-8'))
+                else:
+                    self.send_error(404, f"CSS File Not Found: {file_path}")
+                return
+
             # עמוד הבית
             if path == '/':
                 self._set_headers()
@@ -277,7 +305,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(self._html(html_content))
                 except Exception as e:
                     self.send_error(500, f"Error loading Sign Up page: {e}")
-
 
             # עמוד ההתחברות
             elif path == '/login':

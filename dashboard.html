@@ -4,15 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Welcome to your dashboard!</h1>
-    <p>Please choose one of the following options:</p>
-    <form action="/view_history" method="get">
-        <button type="submit">View List History</button>
-    </form>
-    <form action="/create_new_list" method="get">
-        <button type="submit">Create New List</button>
-    </form>
+    <div class="header">
+        <img src="logo.jpg" alt="Listi Logo" class="logo">
+        <h1>LISTI</h1>
+        <p class="subtitle">ניהול רשימות הקניות שלך</p>
+    </div>
+
+    <div class="container dashboard-container">
+        <h1 class="form-title">Welcome to Your Dashboard!</h1>
+        <p class="form-instructions">Please choose one of the following options:</p>
+        <button onclick="window.location.href='/view_history'" class="form-button">View List History</button>
+        <button onclick="window.location.href='/create_new_list'" class="form-button">Create New List</button>
+    </div>
+
+    <div class="images">
+        <img src="Super1.jpg" alt="Supermarket Image 1">
+        <img src="Super2.jpg" alt="Supermarket Image 2">
+        <img src="Super3.jpg" alt="Supermarket Image 3">
+    </div>
 </body>
 </html>
