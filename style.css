@@ -141,3 +141,34 @@ body {
     margin: 10px 5px;
     width: 40%;
 }
+
+/* Navbar Styling */
+.navbar {
+    background-color: #4e3176; /* צבע סגול כהה */
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar a {
+    color: white; /* צבע טקסט */
+    text-decoration: none; /* בלי קו תחתון */
+    padding: 10px 20px; /* ריווח פנימי */
+    font-size: 18px; /* גודל טקסט */
+    font-weight: bold; /* טקסט מודגש */
+    transition: background-color 0.3s ease; /* אנימציה למעבר צבע */
+    border-radius: 5px; /* קצוות מעוגלים */
+    margin: 0 10px; /* רווח בין הקישורים */
+}
+
+.navbar a:hover {
+    background-color: #6a4b90; /* צבע סגול בהיר יותר במעבר עכבר */
+}
+
+.navbar a:active {
+    background-color: #3d2558; /* צבע סגול כהה יותר בלחיצה */
+}
+

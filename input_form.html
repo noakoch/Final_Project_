@@ -129,6 +129,14 @@
         <div class="footer">
             &copy; 2024 Litos Project
         </div>
+        <div class="navbar">
+        <a href="/signup">Sign Up</a>
+        <a href="/login">Login</a>
+        {% if current_user %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/create_new_list">Create New List</a>
+        {% endif %}
+    </div>
     </div>
 </body>
 </html>

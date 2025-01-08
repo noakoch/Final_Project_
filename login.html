@@ -33,5 +33,14 @@
         <img src="Super2.jpg" alt="Supermarket Image 2">
         <img src="Super3.jpg" alt="Supermarket Image 3">
     </div>
+
+    <div class="navbar">
+        <a href="/signup">Sign Up</a>
+        <a href="/login">Login</a>
+        {% if current_user %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/create_new_list">Create New List</a>
+        {% endif %}
+    </div>
 </body>
 </html>
