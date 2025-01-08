@@ -172,3 +172,46 @@ body {
     background-color: #3d2558; /* צבע סגול כהה יותר בלחיצה */
 }
 
+/* INPUT FORM SPECIFIC */
+.input-form-container h1,
+.input-form-container h2 {
+    color: #4e3176;
+    margin-bottom: 20px;
+}
+
+.input-form-container label {
+    display: block;
+    text-align: left;
+    margin: 10px 0 5px;
+    font-size: 16px;
+    color: #4e3176;
+}
+
+.input-form-container input[type="text"],
+.input-form-container input[type="number"],
+.input-form-container textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+}
+
+.input-form-container input[type="submit"] {
+    background-color: #ffcc00;
+    color: #4e3176;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.input-form-container input[type="submit"]:hover {
+    background-color: #e6b800;
+}

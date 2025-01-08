@@ -329,25 +329,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.send_error(404, f"CSS File Not Found: {file_path}")
                 return
 
-            # יצירת navbar עם קישורים דינאמיים
-            navbar = """
-            <div class="navbar">
-                <a href="/signup">Sign Up</a>
-                <a href="/login">Log In</a>
-            """
-            if current_user:  # רק אם משתמש מחובר
-                navbar += """
-                <a href="/dashboard">Dashboard</a>
-                <a href="/create_new_list">Create New List</a>
-                """
-            navbar += "</div>"
-
             # עמוד הבית
             if path == '/':
                 self._set_headers()
                 with open('index.html', 'r', encoding='utf-8') as file:
                     html_content = file.read()
-                html_content = navbar + html_content  # הוספת ה-navbar
                 self.wfile.write(self._html(html_content))
 
             # עמוד ההרשמה
@@ -356,7 +342,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self._set_headers()
                     with open('signup.html', 'r', encoding='utf-8') as file:
                         html_content = file.read()
-                    html_content = navbar + html_content  # הוספת ה-navbar
                     self.wfile.write(self._html(html_content))
                 except Exception as e:
                     self.send_error(500, f"Error loading Sign Up page: {e}")
@@ -366,96 +351,82 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._set_headers()
                 with open('login.html', 'r', encoding='utf-8') as file:
                     html_content = file.read()
-                html_content = navbar + html_content  # הוספת ה-navbar
                 self.wfile.write(self._html(html_content))
 
             # עמוד לוח הבקרה
             elif path == '/dashboard':
-                if current_user:  # גישה רק אם מחובר
-                    self._set_headers()
-                    with open('dashboard.html', 'r', encoding='utf-8') as file:
-                        html_content = file.read()
-                    html_content = navbar + html_content  # הוספת ה-navbar
-                    self.wfile.write(self._html(html_content))
-                else:
-                    self.send_error(403, "Access Denied. Please log in first.")
+                self._set_headers()
+                with open('dashboard.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
             # עמוד יצירת רשימה חדשה
             elif path == '/create_new_list':
-                if current_user:  # גישה רק אם מחובר
-                    self._set_headers()
-                    with open('input_form.html', 'r', encoding='utf-8') as file:
-                        html_content = file.read()
-                    html_content = navbar + html_content  # הוספת ה-navbar
-                    self.wfile.write(self._html(html_content))
-                else:
-                    self.send_error(403, "Access Denied. Please log in first.")
+                self._set_headers()
+                with open('input_form.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                self.wfile.write(self._html(html_content))
 
             # עמוד היסטוריית רשימות
             elif path == '/view_history':
-                if current_user:  # גישה רק אם מחובר
-                    self._set_headers()
-                    history_file = "list_history.xlsx"
-                    if os.path.exists(history_file):
-                        df = pd.read_excel(history_file)
+                self._set_headers()
+                history_file = "list_history.xlsx"
+                if os.path.exists(history_file):
+                    df = pd.read_excel(history_file)
 
-                        # סינון לפי משתמש מחובר
-                        if current_user:
-                            user_history = df[df['username'] == current_user]
+                    # סינון לפי משתמש מחובר
+                    if current_user:
+                        user_history = df[df['username'] == current_user]
 
-                            if not user_history.empty:
-                                # טיפול במצרכים - חיבור מצרכים כפולים
-                                def format_ingredients(row):
-                                    ingredients = []
-                                    for col in row.index:
-                                        if col.startswith("Ingredient") and pd.notna(row[col]):
-                                            ingredients.append(row[col])
-                                    formatted_ingredients = {}
-                                    for ingredient in ingredients:
-                                        if ingredient in formatted_ingredients:
-                                            formatted_ingredients[ingredient] += 1
-                                        else:
-                                            formatted_ingredients[ingredient] = 1
-                                    return ', '.join(f"{ing}*{count}" if count > 1 else ing for ing, count in
-                                                     formatted_ingredients.items())
+                        if not user_history.empty:
+                            # טיפול במצרכים - חיבור מצרכים כפולים
+                            def format_ingredients(row):
+                                ingredients = []
+                                for col in row.index:
+                                    if col.startswith("Ingredient") and pd.notna(row[col]):
+                                        ingredients.append(row[col])
+                                formatted_ingredients = {}
+                                for ingredient in ingredients:
+                                    if ingredient in formatted_ingredients:
+                                        formatted_ingredients[ingredient] += 1
+                                    else:
+                                        formatted_ingredients[ingredient] = 1
+                                return ', '.join(f"{ing}*{count}" if count > 1 else ing for ing, count in
+                                                 formatted_ingredients.items())
 
-                                # יצירת עמודה מעוצבת למצרכים
-                                user_history['Formatted Ingredients'] = user_history.apply(format_ingredients, axis=1)
+                            # יצירת עמודה מעוצבת למצרכים
+                            user_history['Formatted Ingredients'] = user_history.apply(format_ingredients, axis=1)
 
-                                # מחיקת עמודות Ingredients המקוריות
-                                ingredient_columns = [col for col in user_history.columns if
-                                                      col.startswith("Ingredient")]
-                                user_history = user_history.drop(columns=ingredient_columns)
+                            # מחיקת עמודות Ingredients המקוריות
+                            ingredient_columns = [col for col in user_history.columns if col.startswith("Ingredient")]
+                            user_history = user_history.drop(columns=ingredient_columns)
 
-                                # הסתרת NaN והצגת טבלה HTML
-                                html_content = user_history.fillna('').to_html(index=False, classes="table")
-                            else:
-                                html_content = "<h1>No list history found for your account.</h1>"
+                            # הסתרת NaN והצגת טבלה HTML
+                            html_content = user_history.fillna('').to_html(index=False, classes="table")
                         else:
-                            html_content = "<h1>No user is currently logged in. Please log in first.</h1>"
+                            html_content = "<h1>No list history found for your account.</h1>"
                     else:
-                        html_content = "<h1>No list history found.</h1>"
-
-                    self.wfile.write(self._html(f"""
-                    <html>
-                    <head>
-                        <title>List History</title>
-                        <style>
-                            body {{ font-family: Arial, sans-serif; padding: 20px; }}
-                            .table {{ width: 100%; border-collapse: collapse; }}
-                            .table th, .table td {{ border: 1px solid #ddd; padding: 8px; }}
-                            .table th {{ background-color: #f2f2f2; text-align: left; }}
-                        </style>
-                    </head>
-                    <body>
-                        {navbar}
-                        <h1>List History</h1>
-                        {html_content}
-                    </body>
-                    </html>
-                    """))
+                        html_content = "<h1>No user is currently logged in. Please log in first.</h1>"
                 else:
-                    self.send_error(403, "Access Denied. Please log in first.")
+                    html_content = "<h1>No list history found.</h1>"
+
+                self.wfile.write(self._html(f"""
+                <html>
+                <head>
+                    <title>List History</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                        .table {{ width: 100%; border-collapse: collapse; }}
+                        .table th, .table td {{ border: 1px solid #ddd; padding: 8px; }}
+                        .table th {{ background-color: #f2f2f2; text-align: left; }}
+                    </style>
+                </head>
+                <body>
+                    <h1>List History</h1>
+                    {html_content}
+                </body>
+                </html>
+                """))
 
             # תמיכה בתמונות
             elif path.endswith(('.png', '.jpg', '.jpeg', '.gif')):
