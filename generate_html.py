@@ -40,32 +40,60 @@ def optimized_selection_dp(budget, required_dish, allergies, ingredients_data, d
                     total_cost += ingredient_price
         return total_cost
 
-    # בדיקה אם המנה המועדפת מתנגשת עם אלרגיות
+    selected_dishes = []
+    total_cost = 0
+    total_value = 0
+    ingredients_list = []
+
+    # אם הוזנה מנה נדרשת, נוסיף אותה תחילה
     if required_dish:
         dish_row = dishes_data[dishes_data['Dish'] == required_dish]
         if not dish_row.empty:
+            # בדיקת אלרגיות
             for i in range(1, 6):
                 ingredient = dish_row.iloc[0][f'Ingredients {i}']
                 if pd.notna(ingredient) and ingredient in allergies:
                     return f"The dish '{required_dish}' contains '{ingredient}'. Please change your selection accordingly."
 
-    filtered_dishes = filter_dishes(dishes_data, allergies)
-    selected_dishes = []
-    total_cost, total_value = 0, 0
-    ingredients_list = []
+            # חישוב עלות המנה הנדרשת
+            required_dish_cost = calculate_dish_cost(dish_row.iloc[0], ingredients_data)
+            if required_dish_cost > budget:
+                return f"The required dish '{required_dish}' exceeds your budget of {budget}. Please adjust your selection or increase your budget."
 
+            # הוספת המנה הנדרשת
+            selected_dishes.append(required_dish)
+            total_cost += required_dish_cost
+            total_value += dish_row.iloc[0]['Nutritional Value']
+            for i in range(1, 6):
+                ingredient = dish_row.iloc[0][f'Ingredients {i}']
+                if pd.notna(ingredient):
+                    ingredients_list.append(ingredient)
+
+    # עדכון התקציב
+    remaining_budget = budget - total_cost
+
+    # סינון מנות לפי אלרגיות
+    filtered_dishes = filter_dishes(dishes_data, allergies)
+
+    # הוספת מנות נוספות לתכנון
     for _, dish in filtered_dishes.iterrows():
-        cost = calculate_dish_cost(dish, ingredients_data)
-        if cost + total_cost <= budget:
+        if dish['Dish'] in selected_dishes:  # בדיקה אם המנה כבר נבחרה
+            continue
+        dish_cost = calculate_dish_cost(dish, ingredients_data)
+        if dish_cost <= remaining_budget:
             selected_dishes.append(dish['Dish'])
-            total_cost += cost
+            total_cost += dish_cost
             total_value += dish['Nutritional Value']
             for i in range(1, 6):
                 ingredient = dish[f'Ingredients {i}']
                 if pd.notna(ingredient):
                     ingredients_list.append(ingredient)
+            remaining_budget -= dish_cost  # עדכון התקציב שנותר
 
-    remaining_budget = budget - total_cost
+    # חישוב מחדש של התקציב שנותר
+    if remaining_budget < 0:
+        remaining_budget = 0
+
     return selected_dishes, ingredients_list, total_cost, total_value, remaining_budget
 
 
@@ -103,12 +131,24 @@ class RequestHandler(BaseHTTPRequestHandler):
                     return
 
                 df = pd.read_excel(users_file)
-                if username in df['Username'].values and df[df['Username'] == username]['Password'].values[
-                    0] == password:
-                    current_user = username
-                    self.send_response(302)
-                    self.send_header('Location', '/dashboard')
-                    self.end_headers()
+
+                # המרת העמודות למחרוזות כדי למנוע בעיות
+                df['Username'] = df['Username'].astype(str).str.strip().str.lower()
+                df['Password'] = df['Password'].astype(str).str.strip()
+                username = username.strip().lower()
+                password = password.strip()
+
+                # בדיקת שם משתמש וסיסמה
+                if username in df['Username'].values:
+                    user_row = df[df['Username'] == username]
+                    if user_row['Password'].iloc[0] == password:
+                        current_user = username
+                        self.send_response(302)
+                        self.send_header('Location', '/dashboard')
+                        self.end_headers()
+                    else:
+                        self._set_headers()
+                        self.wfile.write(b"Incorrect username or password.")
                 else:
                     self._set_headers()
                     self.wfile.write(b"Incorrect username or password.")
